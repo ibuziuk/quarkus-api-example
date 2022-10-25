@@ -25,6 +25,7 @@ components:
           path: /home/user/.m2
       memoryLimit: 6G
       mountSources: true
+      sourceMapping: /project2
 
   - name: ubi-minimal
     container:
