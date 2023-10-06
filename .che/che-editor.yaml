@@ -32,3 +32,10 @@ override:
       attributes:
         discoverable: false
         urlRewriteSupported: false
+    - name: code-redirect-4
+      targetPort: 17777
+      exposure: public
+      protocol: https
+      attributes:
+        discoverable: false
+        urlRewriteSupported: true
