@@ -1,111 +1,66 @@
 inline:
-  schemaVersion: 2.2.0
+  schemaVersion: 2.2.2
   metadata:
-    name: che-rider
+    name: che-idea-server
+    displayName: IntelliJ IDEA Ultimate (desktop)
+    description: JetBrains IntelliJ IDEA Ultimate dev server for Eclipse Che - next
+    icon: https://resources.jetbrains.com/storage/products/intellij-idea/img/meta/intellij-idea_logo_300x300.png
+    attributes:
+      publisher: che-incubator
+      version: next
+      title: JetBrains IntelliJ IDEA Ultimate dev server for Eclipse Che - next
+      repository: https://github.com/che-incubator/che-idea-dev-server
+      firstPublicationDate: '2023-30-11'
   commands:
-    - id: init-container-command
+    - id: inject-editor
       apply:
-        component: che-rider-injector
-    - id: init-che-rider-command
+        component: editor-injector
+    - id: start-idea-server
       exec:
-        component: che-rider-runtime-description
-        commandLine: nohup /projector/entrypoint-volume.sh > /projector/entrypoint-logs.txt 2>&1 & dotnet dev-certs https --trust &
+        component: editor-runtime
+        commandLine: nohup /idea-server/entrypoint-volume.sh > /idea-server/std.out 2>&1 &
   events:
     preStart:
-      - init-container-command
+      - inject-editor
     postStart:
-      - init-che-rider-command
+      - start-idea-server
   components:
-    - name: che-rider-runtime-description
+    - name: idea-server
+      volume: {}
+    - name: editor-injector
       container:
-        image: quay.io/devfile/universal-developer-image:latest
-        env:
-          - name: PROJECTOR_ASSEMBLY_DIR
-            value: /projector
-          - name: PROJECTOR_CONFIG_DIR
-            value: /home/user/.jetbrains
+        image: quay.io/che-incubator/che-idea-dev-server:next
+        command:
+          - /entrypoint-init-container.sh
         volumeMounts:
-          - name: projector-volume
-            path: /projector
-          - name: projector-configuration
-            path: /home/user/.jetbrains
-          - name: projector-java-configuration
-            path: /home/user/.java
+          - name: idea-server
+            path: /idea-server
+        memoryLimit: 256Mi
+        memoryRequest: 32Mi
+        cpuLimit: 500m
+        cpuRequest: 30m
+    - name: editor-runtime
+      container:
+        image: quay.io/devfile/universal-developer-image@sha256:75034f0dad7a6df3db53e20fc3597b68f2311e556164d47aa9151d3b3584bbce
         memoryLimit: 6144Mi
         memoryRequest: 2048Mi
         cpuLimit: 2000m
         cpuRequest: 1500m
+        volumeMounts:
+          - name: idea-server
+            path: /idea-server
         endpoints:
-          - name: intellij
+          - name: idea-server
             attributes:
               type: main
               cookiesAuthEnabled: true
               discoverable: false
               urlRewriteSupported: true
-              secure: false
-            targetPort: 8887
+            targetPort: 3400
             exposure: public
-            path: /?backgroundColor=434343&wss
-            protocol: http
-          - name: intellij-redirect-1
-            attributes:
-              discoverable: false
-              urlRewriteSupported: false
-            targetPort: 13131
-            exposure: public
-            protocol: http
-          - name: intellij-redirect-2
-            attributes:
-              discoverable: false
-              urlRewriteSupported: false
-            targetPort: 13132
-            exposure: public
-            protocol: http
-          - name: intellij-redirect-3
-            attributes:
-              discoverable: false
-              urlRewriteSupported: false
-            targetPort: 13133
-            exposure: public
-            protocol: http
-          - name: netcore-debug-1
-            attributes:
-              discoverable: false
-              urlRewriteSupported: false
-            targetPort: 7058
-            exposure: public
-            protocol: http
-          - name: netcore-debug-2
-            attributes:
-              discoverable: false
-              urlRewriteSupported: false
-            targetPort: 5123
-            exposure: public
-            protocol: http
+            secure: true
+            protocol: https
       attributes:
-        app.kubernetes.io/component: che-rider-runtime
-        app.kubernetes.io/part-of: che-rider.eclipse.org
+        app.kubernetes.io/component: editor-runtime
+        app.kubernetes.io/part-of: idea-server.eclipse.org
         controller.devfile.io/container-contribution: true
-    - name: projector-volume
-      volume: {}
-    - name: projector-configuration
-      volume: {}
-    - name: projector-java-configuration
-      volume: {}
-    - name: che-rider-injector
-      container:
-        image: quay.io/mloriedo/che-rider:2021.3
-        command:
-          - /projector/entrypoint-init-container.sh
-        env:
-          - name: PROJECTOR_VOLUME_MOUNT
-            value: /projector-volume
-          - name: PROJECTOR_ASSEMBLY_DIR
-            value: /projector
-        volumeMounts:
-          - name: projector-volume
-            path: /projector-volume
-        memoryLimit: 128Mi
-        memoryRequest: 32Mi
-        cpuLimit: 500m
-        cpuRequest: 30m
