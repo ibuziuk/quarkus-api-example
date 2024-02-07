@@ -1,36 +1,111 @@
-id: che-incubator/che-code/latest
-override:
-  containers:
-    - name: che-code-runtime-description
-      endpoints:
-        - name: che-code
-          attributes:
-            type: main
-            cookiesAuthEnabled: true
-            discoverable: false
-            urlRewriteSupported: true
-          targetPort: 3100
-          exposure: public
-          secure: true
-          protocol: https
-        - name: code-redirect-1
-          targetPort: 13131
-          exposure: public
-          protocol: https
-          attributes:
-            discoverable: false
-            urlRewriteSupported: false
-        - name: code-redirect-2
-          targetPort: 13132
-          exposure: public
-          protocol: https
-          attributes:
-            discoverable: false
-            urlRewriteSupported: false
-        - name: code-redirect-3
-          targetPort: 13133
-          exposure: public
-          protocol: https
-          attributes:
-            discoverable: false
-            urlRewriteSupported: false
+inline:
+  schemaVersion: 2.2.0
+  metadata:
+    name: che-rider
+  commands:
+    - id: init-container-command
+      apply:
+        component: che-rider-injector
+    - id: init-che-rider-command
+      exec:
+        component: che-rider-runtime-description
+        commandLine: nohup /projector/entrypoint-volume.sh > /projector/entrypoint-logs.txt 2>&1 & dotnet dev-certs https --trust &
+  events:
+    preStart:
+      - init-container-command
+    postStart:
+      - init-che-rider-command
+  components:
+    - name: che-rider-runtime-description
+      container:
+        image: quay.io/devfile/universal-developer-image:latest
+        env:
+          - name: PROJECTOR_ASSEMBLY_DIR
+            value: /projector
+          - name: PROJECTOR_CONFIG_DIR
+            value: /home/user/.jetbrains
+        volumeMounts:
+          - name: projector-volume
+            path: /projector
+          - name: projector-configuration
+            path: /home/user/.jetbrains
+          - name: projector-java-configuration
+            path: /home/user/.java
+        memoryLimit: 6144Mi
+        memoryRequest: 2048Mi
+        cpuLimit: 2000m
+        cpuRequest: 1500m
+        endpoints:
+          - name: intellij
+            attributes:
+              type: main
+              cookiesAuthEnabled: true
+              discoverable: false
+              urlRewriteSupported: true
+              secure: false
+            targetPort: 8887
+            exposure: public
+            path: /?backgroundColor=434343&wss
+            protocol: http
+          - name: intellij-redirect-1
+            attributes:
+              discoverable: false
+              urlRewriteSupported: false
+            targetPort: 13131
+            exposure: public
+            protocol: http
+          - name: intellij-redirect-2
+            attributes:
+              discoverable: false
+              urlRewriteSupported: false
+            targetPort: 13132
+            exposure: public
+            protocol: http
+          - name: intellij-redirect-3
+            attributes:
+              discoverable: false
+              urlRewriteSupported: false
+            targetPort: 13133
+            exposure: public
+            protocol: http
+          - name: netcore-debug-1
+            attributes:
+              discoverable: false
+              urlRewriteSupported: false
+            targetPort: 7058
+            exposure: public
+            protocol: http
+          - name: netcore-debug-2
+            attributes:
+              discoverable: false
+              urlRewriteSupported: false
+            targetPort: 5123
+            exposure: public
+            protocol: http
+      attributes:
+        app.kubernetes.io/component: che-rider-runtime
+        app.kubernetes.io/part-of: che-rider.eclipse.org
+        controller.devfile.io/container-contribution: true
+    - name: projector-volume
+      volume: {}
+    - name: projector-configuration
+      volume: {}
+    - name: projector-java-configuration
+      volume: {}
+    - name: che-rider-injector
+      container:
+        image: quay.io/mloriedo/che-rider:2021.3
+        command:
+          - /projector/entrypoint-init-container.sh
+        env:
+          - name: PROJECTOR_VOLUME_MOUNT
+            value: /projector-volume
+          - name: PROJECTOR_ASSEMBLY_DIR
+            value: /projector
+        volumeMounts:
+          - name: projector-volume
+            path: /projector-volume
+        memoryLimit: 128Mi
+        memoryRequest: 32Mi
+        cpuLimit: 500m
+        cpuRequest: 30m
