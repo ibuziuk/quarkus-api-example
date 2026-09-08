@@ -12,7 +12,10 @@
 package org.eclipse.che.incubator.food;
 
 import static io.restassured.RestAssured.given;
+import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
@@ -23,10 +26,10 @@ public class FoodEndpointTest {
 
     @Test
     public void testListAll() {
-        Food[] foods = given()
+        FoodResponse[] foods = given()
                 .when().get("/food")
                 .then().statusCode(200)
-                .extract().as(Food[].class);
+                .extract().as(FoodResponse[].class);
         assertEquals(5, foods.length);
         assertEquals("Apple pie", foods[0].name);
         assertEquals("Orange", foods[1].name);
@@ -37,34 +40,34 @@ public class FoodEndpointTest {
 
     @Test
     public void testGetById() {
-        Food food = given()
+        FoodResponse food = given()
                 .when().get("/food/1")
                 .then().statusCode(200)
-                .extract().as(Food.class);
+                .extract().as(FoodResponse.class);
         assertEquals(1, food.id);
         assertEquals("Orange", food.name);
         assertEquals("Fruit Bistro", food.restaurantName);
-        assertEquals(0.99, food.price);
+        assertEquals("0.99", food.price.toPlainString());
     }
 
     @Test
     public void testGetByName() {
-        Food food = given()
+        FoodResponse food = given()
                 .when().get("/food/search/Orange")
                 .then().statusCode(200)
-                .extract().as(Food.class);
+                .extract().as(FoodResponse.class);
         assertEquals(1, food.id);
         assertEquals("Orange", food.name);
         assertEquals("Fruit Bistro", food.restaurantName);
-        assertEquals(0.99, food.price);
+        assertEquals("0.99", food.price.toPlainString());
     }
 
     @Test
     public void testListByRestaurant() {
-        Food[] food = given()
+        FoodResponse[] food = given()
                 .when().get("/food/restaurant/Fruit Bistro")
                 .then().statusCode(200)
-                .extract().as(Food[].class);
+                .extract().as(FoodResponse[].class);
         assertEquals(3, food.length);
         assertEquals("Apple pie", food[0].name);
         assertEquals("Orange", food[1].name);
@@ -73,26 +76,55 @@ public class FoodEndpointTest {
 
     @Test
     public void testDelete() {
-        // Given a food exists
-        given()
-            .when().get("/food/1")
-            .then().statusCode(200);
+        int id = given()
+                .contentType("application/json")
+                .body("{\"name\":\"Temporary\",\"restaurantName\":\"Test Kitchen\",\"price\":1.25}")
+                .when().post("/food")
+                .then().statusCode(201)
+                .body("id", notNullValue())
+                .extract().path("id");
 
-        // When we delete it
         given()
-                .when().delete("/food/1")
+                .when().delete("/food/" + id)
                 .then().statusCode(204);
 
-        // Then it is gone
         given()
-                .when().get("/food/1")
-                .then().statusCode(204); // No content because it was deleted
+                .when().get("/food/" + id)
+                .then().statusCode(404);
 
-        // And the list is smaller
-        Food[] foods = given()
+        FoodResponse[] foods = given()
                 .when().get("/food")
                 .then().statusCode(200)
-                .extract().as(Food[].class);
-        assertEquals(4, foods.length);
+                .extract().as(FoodResponse[].class);
+        assertEquals(5, foods.length);
+    }
+
+    @Test
+    public void testMissingFoodReturnsNotFound() {
+        given().when().get("/food/999999").then().statusCode(404);
+        given().when().get("/food/search/Unknown").then().statusCode(404);
+    }
+
+    @Test
+    public void testCreateValidatesInput() {
+        given()
+                .contentType("application/json")
+                .body("{\"name\":\"\",\"restaurantName\":\"Test Kitchen\",\"price\":-1}")
+                .when().post("/food")
+                .then().statusCode(400);
+
+        io.restassured.response.Response response = given()
+                .contentType("application/json")
+                .body("{\"name\":\"Taco\",\"restaurantName\":\"Test Kitchen\",\"price\":2.50}")
+                .when().post("/food")
+                .then().statusCode(201)
+                .body("name", equalTo("Taco"))
+                .body("price", equalTo(2.50f))
+                .extract().response();
+
+        int id = response.path("id");
+        assertTrue(response.header("Location").endsWith("/food/" + id));
+
+        given().when().delete("/food/" + id).then().statusCode(204);
     }
 }

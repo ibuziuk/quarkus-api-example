@@ -13,8 +13,10 @@ package org.eclipse.che.incubator.food;
 
 import java.net.URI;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import javax.transaction.Transactional;
+import javax.validation.Valid;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -33,27 +35,33 @@ import io.quarkus.panache.common.Sort;
 public class FoodResource {
 
     @GET
-    public List<Food> list() {
-        return Food.listAll(Sort.by("name"));
+    public List<FoodResponse> list() {
+        return Food.<Food>listAll(Sort.by("name")).stream()
+                .map(FoodResponse::from)
+                .collect(Collectors.toList());
     }
 
     @GET
     @Path("/{id}")
-    public Food getById(@PathParam("id") Long id) {
-        return Food.findById(id);
+    public Response getById(@PathParam("id") Long id) {
+        Food food = Food.findById(id);
+        if (food == null) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+        return Response.ok(FoodResponse.from(food)).build();
     }
 
     @POST
     @Transactional
-    public Response create(Food food) {
-        if (food.id != null) {
-            return Response.status(Response.Status.BAD_REQUEST).build();
-        }
+    public Response create(@Valid FoodRequest request) {
+        Food food = new Food();
+        food.name = request.name;
+        food.restaurantName = request.restaurantName;
+        food.price = request.price;
         food.persist();
-        if (food.isPersistent()) {
-            return Response.created(URI.create("/food/" + food.id)).build();
-        }
-        return Response.status(Response.Status.INTERNAL_SERVER_ERROR).build();
+        return Response.created(URI.create("/food/" + food.id))
+                .entity(FoodResponse.from(food))
+                .build();
     }
 
     @DELETE
@@ -70,13 +78,19 @@ public class FoodResource {
 
     @GET
     @Path("search/{name}")
-    public Food getByName(@PathParam("name") String name) {
-        return Food.find("name", name).firstResult();
+    public Response getByName(@PathParam("name") String name) {
+        Food food = Food.find("name", name).firstResult();
+        if (food == null) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
+        return Response.ok(FoodResponse.from(food)).build();
     }
 
     @GET
     @Path("restaurant/{restaurantName}")
-    public List<Food> listByRestaurant(@PathParam("restaurantName") String restaurantName) {
-        return Food.find("restaurantName", Sort.by("name"), restaurantName).list();
+    public List<FoodResponse> listByRestaurant(@PathParam("restaurantName") String restaurantName) {
+        return Food.<Food>find("restaurantName", Sort.by("name"), restaurantName).list().stream()
+                .map(FoodResponse::from)
+                .collect(Collectors.toList());
     }
 }

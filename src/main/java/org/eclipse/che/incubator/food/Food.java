@@ -11,6 +11,8 @@
  */
 package org.eclipse.che.incubator.food;
 
+import java.math.BigDecimal;
+
 import javax.persistence.Column;
 import javax.persistence.Entity;
 
@@ -19,12 +21,13 @@ import io.quarkus.hibernate.orm.panache.PanacheEntity;
 @Entity
 public class Food extends PanacheEntity {
 
-    @Column(length = 40)
+    @Column(length = 40, nullable = false)
     public String name;
 
-    @Column(length = 40)
+    @Column(length = 40, nullable = false)
     public String restaurantName;
 
-    public double price;
+    @Column(nullable = false, precision = 10, scale = 2)
+    public BigDecimal price;
 
 }
